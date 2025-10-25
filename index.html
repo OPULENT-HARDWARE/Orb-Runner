@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Orb Runner — BY OPULENT HARDWARE</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #000000;
+    --gridGlow: #00ff4c;   /* green default */
+    --gridGlowHi: #ffb020; /* amber */
+    --gridGlowMax: #ff3b30;/* red */
+    --hud: #e8e8e8;
+    --hudDim: #9aa0a6;
+    --accent: #36a8ff;     /* blue accent for UI */
+    --radius: 16px;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--hud);
+    font-family: "Saira", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    overscroll-behavior: none;
+    touch-action: none; /* critical for iCUE/iframe touch capture */
+  }
+
+  .stage {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(1200px 800px at 50% 50%, rgba(0,255,76,0.08), transparent 60%),
+      radial-gradient(900px 600px at 50% 50%, rgba(54,168,255,0.06), transparent 60%),
+      radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,0.6), rgba(0,0,0,1));
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Top HUD: badges + controls */
+  .hud {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    text-shadow: 0 0 10px rgba(0,0,0,0.6);
+    pointer-events: none; /* buttons re-enable events */
+  }
+
+  .hud-left, .hud-right { display: flex; gap: 10px; align-items: center; }
+  .hud-left { pointer-events: none; } /* badges stay inert */
+  .hud-right { pointer-events: auto; } /* buttons clickable */
+
+  .badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 24px rgba(0,0,0,0.5) inset, 0 0 24px rgba(0,0,0,0.4);
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+
+  .ctl {
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 10px 25px rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--hud);
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .ctl:active { transform: scale(0.98); }
+
+  .brand {
+    position: absolute;
+    right: 16px;
+    top: 44px; /* below top row to avoid crowding */
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-weight: 700;
+    user-select: none;
+    text-shadow: 0 0 10px rgba(0,0,0,0.6);
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  /* Bottom turn buttons for touch */
+  .controls {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px;
+    opacity: 0.9;
+    user-select: none;
+  }
+  .btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+    padding: 16px 12px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 10px 25px rgba(0,0,0,0.55);
+    color: var(--hud);
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .btn:active { transform: scale(0.98); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="game"></canvas>
+
+    <!-- TOP HUD -->
+    <div class="hud">
+      <div class="hud-left">
+        <div class="badge" id="score">SCORE 0</div>
+        <div class="badge" id="speed">SPEED 1.0x</div>
+        <div class="badge" id="length">LEN 1</div>
+      </div>
+      <div class="hud-right">
+        <div class="ctl" id="pauseBtn">RESUME</div>
+        <div class="ctl" id="restartBtn">RESTART</div>
+      </div>
+    </div>
+
+    <div class="brand">
+      <div class="dot"></div>
+      <div>BY OPULENT HARDWARE</div>
+    </div>
+
+    <!-- Bottom touch helpers (keep for simplicity) -->
+    <div class="controls" id="controls">
+      <div class="btn" id="btnLeft">TURN ◀</div>
+      <div class="btn" id="btnRight">TURN ▶</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const hudScore = document.getElementById('score');
+  const hudSpeed = document.getElementById('speed');
+  const hudLen   = document.getElementById('length');
+
+  const pauseBtn   = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  const btnLeft  = document.getElementById('btnLeft');
+  const btnRight = document.getElementById('btnRight');
+
+  // ----- Sizing / DPR crispness -----
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  function fitCanvas(){
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width  = Math.round(w * DPR);
+    canvas.height = Math.round(h * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  new ResizeObserver(fitCanvas).observe(canvas);
+  fitCanvas();
+
+  // ----- Grid config (auto scales to viewport) -----
+  function gridFromViewport() {
+    const vw = canvas.clientWidth;
+    const vh = canvas.clientHeight;
+    // Target ~32–44px cells
+    const targetCell = Math.max(28, Math.min(44, Math.floor(Math.min(vw, vh) / 20)));
+    const cols = Math.floor(vw / targetCell);
+    const rows = Math.floor(vh / targetCell);
+    const cell = Math.floor(Math.min(vw/cols, vh/rows));
+    const ox = Math.floor((vw - cols*cell)/2);
+    const oy = Math.floor((vh - rows*cell)/2);
+    return { cols, rows, cell, ox, oy };
+  }
+
+  // ----- Game State -----
+  let grid = gridFromViewport();
+  window.addEventListener('resize', () => { grid = gridFromViewport(); });
+
+  const DIR = { LEFT:0, UP:1, RIGHT:2, DOWN:3 };
+
+  function newGame() {
+    const midx = Math.floor(grid.cols/2);
+    const midy = Math.floor(grid.rows/2);
+    return {
+      snake: [{x:midx, y:midy}],
+      dir: DIR.RIGHT,
+      nextDir: DIR.RIGHT,
+      food: spawnFood([{x:midx,y:midy}]),
+      score: 0,
+      alive: true,
+      speed: 6,         // cells per second baseline
+      tickAcc: 0,
+      levelUpEvery: 6,  // every 6 food, increase speed
+      steps: 0,
+      paused: true      // START PAUSED per your request; we show fade & RESUME button
+    };
+  }
+
+  function spawnFood(blocked) {
+    const used = new Set(blocked.map(p => p.x + "," + p.y));
+    let x, y;
+    do {
+      x = Math.floor(Math.random()*grid.cols);
+      y = Math.floor(Math.random()*grid.rows);
+    } while (used.has(x + "," + y));
+    return {x,y};
+  }
+
+  let G = newGame();
+
+  // ----- HUD -----
+  function updateHUD(){
+    hudScore.textContent = "SCORE " + G.score;
+    hudSpeed.textContent = "SPEED " + (G.speed/6).toFixed(1) + "x";
+    hudLen.textContent   = "LEN " + G.snake.length;
+
+    // Button label
+    pauseBtn.textContent = (G.paused && G.alive) ? "RESUME" : (G.alive ? "PAUSE" : "RESTART");
+
+    // dynamic color vibe based on speed – just for fun
+    const root = document.documentElement;
+    if (G.speed < 7.5) {
+      root.style.setProperty('--gridGlow', '#00ff4c');
+    } else if (G.speed < 9.5) {
+      root.style.setProperty('--gridGlow', '#ffb020');
+    } else {
+      root.style.setProperty('--gridGlow', '#ff3b30');
+    }
+  }
+
+  // ----- Controls -----
+  // Keyboard fallback
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') turnLeft();
+    if (e.key === 'ArrowRight'|| e.key === 'd') turnRight();
+    if (e.key === ' ' || e.key === 'Enter') togglePause();
+    if (e.key === 'r') restart();
+  });
+
+  // Touch buttons
+  const tap = (fn) => (ev) => { ev.preventDefault(); fn(); };
+  ['touchstart','pointerdown','mousedown'].forEach(evt=>{
+    btnLeft.addEventListener(evt, tap(turnLeft), {passive:false});
+    btnRight.addEventListener(evt, tap(turnRight), {passive:false});
+    pauseBtn.addEventListener(evt, tap(togglePause), {passive:false});
+    restartBtn.addEventListener(evt, tap(restart), {passive:false});
+  });
+
+  // Whole-screen quick turns: tap left/right halves to rotate
+  canvas.addEventListener('pointerdown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width/2) turnLeft(); else turnRight();
+  });
+
+  // Swipe detection
+  let swipeStart = null;
+  const SWIPE_MIN = 20; // px threshold
+  function onStart(x,y){ swipeStart = {x,y}; }
+  function onEnd(x,y){
+    if (!swipeStart) return;
+    const dx = x - swipeStart.x;
+    const dy = y - swipeStart.y;
+    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) { swipeStart = null; return; }
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0 && G.dir !== DIR.RIGHT) setDir(DIR.LEFT);
+      else if (dx > 0 && G.dir !== DIR.LEFT) setDir(DIR.RIGHT);
+    } else {
+      if (dy < 0 && G.dir !== DIR.DOWN) setDir(DIR.UP);
+      else if (dy > 0 && G.dir !== DIR.UP) setDir(DIR.DOWN);
+    }
+    swipeStart = null;
+  }
+
+  canvas.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    onStart(t.clientX, t.clientY);
+  }, {passive:true});
+  canvas.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    onEnd(t.clientX, t.clientY);
+  }, {passive:true});
+
+  canvas.addEventListener('pointerdown', (e) => { onStart(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerup',   (e) => { onEnd(e.clientX, e.clientY); });
+
+  function setDir(d){ G.nextDir = d; }
+  function turnLeft(){ setDir((G.dir + 3) % 4); }
+  function turnRight(){ setDir((G.dir + 1) % 4); }
+
+  function togglePause(){
+    if (!G.alive) { restart(); return; }
+    G.paused = !G.paused;
+    updateHUD();
+  }
+
+  function restart(){
+    G = newGame();
+    updateHUD();
+  }
+
+  // ----- Game Loop -----
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.06, (now - last)/1000); // cap delta
+    last = now;
+    if (G.alive && !G.paused) {
+      const stepTime = 1/Math.max(1, G.speed);
+      G.tickAcc += dt;
+      while (G.tickAcc >= stepTime) {
+        tick();
+        G.tickAcc -= stepTime;
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function tick(){
+    G.dir = validateTurn(G.dir, G.nextDir); // no instant 180s
+    const head = G.snake[0];
+    const nx = head.x + (G.dir===DIR.RIGHT?1:G.dir===DIR.LEFT?-1:0);
+    const ny = head.y + (G.dir===DIR.DOWN?1:G.dir===DIR.UP?-1:0);
+    const newHead = {x:nx, y:ny};
+
+    // wall wrap (classic snake feel)
+    newHead.x = (newHead.x + grid.cols) % grid.cols;
+    newHead.y = (newHead.y + grid.rows) % grid.rows;
+
+    // self collision?
+    for (let i=0;i<G.snake.length;i++){
+      if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y) {
+        G.alive = false;
+        // Show "RESTART" on pause button for clarity
+        pauseBtn.textContent = "RESTART";
+        return;
+      }
+    }
+
+    G.snake.unshift(newHead);
+
+    // eat?
+    if (newHead.x === G.food.x && newHead.y === G.food.y) {
+      G.score += 1;
+      if (G.score % G.levelUpEvery === 0) {
+        G.speed = Math.min(12, G.speed + 0.8);
+      }
+      G.food = spawnFood(G.snake);
+    } else {
+      G.snake.pop(); // move forward
+    }
+
+    G.steps++;
+    updateHUD();
+  }
+
+  function validateTurn(cur, nxt){
+    if ((cur===DIR.LEFT && nxt===DIR.RIGHT) ||
+        (cur===DIR.RIGHT&& nxt===DIR.LEFT)  ||
+        (cur===DIR.UP   && nxt===DIR.DOWN)  ||
+        (cur===DIR.DOWN && nxt===DIR.UP)) return cur;
+    return nxt;
+  }
+
+  // ----- Rendering -----
+  function draw(){
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    // Clear
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,w,h);
+
+    // Vignette glow
+    const grad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)*0.7);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.6)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+
+    // Draw food & snake
+    const c = grid.cell, ox = grid.ox, oy = grid.oy;
+
+    // Food (pulsing orb)
+    const t = performance.now()*0.002;
+    const pulse = 0.4 + 0.2*Math.sin(t);
+    const fx = ox + G.food.x*c + c/2;
+    const fy = oy + G.food.y*c + c/2;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = '#36a8ff';
+    ctx.fillStyle = `rgba(54,168,255,${0.7 + 0.3*pulse})`;
+    circle(fx, fy, Math.max(4, c*0.22*(1+pulse)));
+    ctx.restore();
+
+    // Snake
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = getComputedStyle(document.documentElement).getPropertyValue('--gridGlow').trim() || '#00ff4c';
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = glow;
+
+    for (let i=0;i<G.snake.length;i++){
+      const s = G.snake[i];
+      const px = ox + s.x*c + c/2;
+      const py = oy + s.y*c + c/2;
+      const a = i===0 ? 0.95 : Math.max(0.25, 0.9 - i*0.02);
+      ctx.fillStyle = hexToRGBA(glow, a);
+      circle(px, py, Math.max(4, c*0.24));
+    }
+    ctx.restore();
+
+    // --- Subtle fade when paused or dead ---
+    if (G.paused || !G.alive) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.28)"; // soft veil
+      ctx.fillRect(0,0,w,h);
+      ctx.restore();
+    }
+  }
+
+  function circle(x,y,r){
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function hexToRGBA(hex, a=1){
+    const h = hex.replace('#','');
+    const bigint = parseInt(h.length===3 ? h.split('').map(ch=>ch+ch).join('') : h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // Initial HUD update
+  updateHUD();
+})();
+</script>
+</body>
+</html>
