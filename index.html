@@ -9,14 +9,12 @@
   :root{
     --bg: #000000;
     --gridGlow: #00ff4c;   /* green default */
-    --gridGlowHi: #ffb020; /* amber */
-    --gridGlowMax: #ff3b30;/* red */
     --hud: #e8e8e8;
     --hudDim: #9aa0a6;
-    --accent: #36a8ff;     /* blue accent for UI */
     --radius: 16px;
   }
 
+  /* Global hardening for iframe/touch */
   html, body {
     height: 100%;
     width: 100%;
@@ -25,8 +23,12 @@
     color: var(--hud);
     font-family: "Saira", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     overscroll-behavior: none;
-    touch-action: none; /* critical for iCUE/iframe touch capture */
+    touch-action: none;               /* capture gestures inside iframe */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
+  * { -webkit-tap-highlight-color: transparent; }
 
   .stage {
     position: fixed;
@@ -43,26 +45,30 @@
     width: 100%;
     height: 100%;
     display: block;
+    pointer-events: auto; /* ensure pointer events land even inside strict iframes */
   }
 
-  /* Top HUD: badges + controls */
+  /* Top HUD uses a 3-column flex bar: left (stats), center (controls), right (brand) */
   .hud {
     position: absolute;
     left: 12px;
     right: 12px;
     top: 10px;
-    display: flex;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* left / center / right */
     align-items: center;
-    justify-content: space-between;
-    user-select: none;
+    gap: 10px;
     text-shadow: 0 0 10px rgba(0,0,0,0.6);
-    pointer-events: none; /* buttons re-enable events */
+    pointer-events: none; /* re-enable on interactive children only */
   }
-
-  .hud-left, .hud-right { display: flex; gap: 10px; align-items: center; }
-  .hud-left { pointer-events: none; } /* badges stay inert */
-  .hud-right { pointer-events: auto; } /* buttons clickable */
+  .hud-left, .hud-center, .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hud-left  { justify-content: flex-start; pointer-events: none; }
+  .hud-center{ justify-content: center;     pointer-events: auto; } /* interactive */
+  .hud-right { justify-content: flex-end;   pointer-events: none;  } /* label only */
 
   .badge {
     padding: 6px 10px;
@@ -71,10 +77,11 @@
     box-shadow: 0 0 24px rgba(0,0,0,0.5) inset, 0 0 24px rgba(0,0,0,0.4);
     font-weight: 700;
     letter-spacing: 0.4px;
+    white-space: nowrap;
   }
 
   .ctl {
-    padding: 8px 12px;
+    padding: 8px 14px;
     border-radius: 999px;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.12);
@@ -88,25 +95,9 @@
     color: var(--hud);
     touch-action: manipulation;
     cursor: pointer;
+    user-select: none;
   }
   .ctl:active { transform: scale(0.98); }
-
-  .brand {
-    position: absolute;
-    right: 16px;
-    top: 44px; /* below top row to avoid crowding */
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    font-weight: 700;
-    user-select: none;
-    text-shadow: 0 0 10px rgba(0,0,0,0.6);
-  }
-  .dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 12px var(--accent);
-  }
 
   /* Bottom turn buttons for touch */
   .controls {
@@ -118,6 +109,7 @@
     padding: 14px;
     opacity: 0.9;
     user-select: none;
+    pointer-events: auto;
   }
   .btn {
     background: rgba(255,255,255,0.06);
@@ -135,8 +127,16 @@
     color: var(--hud);
     touch-action: manipulation;
     cursor: pointer;
+    user-select: none;
   }
   .btn:active { transform: scale(0.98); }
+
+  /* Brand on right */
+  .brand {
+    white-space: nowrap;
+    font-weight: 700;
+    opacity: 0.95;
+  }
 </style>
 </head>
 <body>
@@ -144,24 +144,26 @@
     <canvas id="game"></canvas>
 
     <!-- TOP HUD -->
-    <div class="hud">
+    <div class="hud" id="hud">
       <div class="hud-left">
         <div class="badge" id="score">SCORE 0</div>
         <div class="badge" id="speed">SPEED 1.0x</div>
         <div class="badge" id="length">LEN 1</div>
       </div>
-      <div class="hud-right">
+
+      <!-- CENTERED CONTROLS -->
+      <div class="hud-center">
         <div class="ctl" id="pauseBtn">RESUME</div>
         <div class="ctl" id="restartBtn">RESTART</div>
       </div>
+
+      <!-- RIGHT BRAND -->
+      <div class="hud-right">
+        <div class="brand">Orb Runner — BY OPULENT HARDWARE</div>
+      </div>
     </div>
 
-    <div class="brand">
-      <div class="dot"></div>
-      <div>BY OPULENT HARDWARE</div>
-    </div>
-
-    <!-- Bottom touch helpers (keep for simplicity) -->
+    <!-- Bottom touch helpers (tap to rotate) -->
     <div class="controls" id="controls">
       <div class="btn" id="btnLeft">TURN ◀</div>
       <div class="btn" id="btnRight">TURN ▶</div>
@@ -170,6 +172,13 @@
 
 <script>
 (() => {
+  /* ====== iFRAME RELIABILITY GUARDRAILS ======
+     - Use Pointer Events for primary input (works across mouse/touch/pen)
+     - Add non-passive listeners where we need preventDefault
+     - Disable contextmenu (long-press) so touches never get hijacked
+  */
+  window.addEventListener('contextmenu', e => e.preventDefault());
+
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha: false });
 
@@ -195,21 +204,18 @@
   new ResizeObserver(fitCanvas).observe(canvas);
   fitCanvas();
 
-  // ----- Grid config (auto scales to viewport) -----
+  // ----- Grid config -----
   function gridFromViewport() {
     const vw = canvas.clientWidth;
     const vh = canvas.clientHeight;
-    // Target ~32–44px cells
     const targetCell = Math.max(28, Math.min(44, Math.floor(Math.min(vw, vh) / 20)));
-    const cols = Math.floor(vw / targetCell);
-    const rows = Math.floor(vh / targetCell);
+    const cols = Math.max(8, Math.floor(vw / targetCell));
+    const rows = Math.max(8, Math.floor(vh / targetCell));
     const cell = Math.floor(Math.min(vw/cols, vh/rows));
     const ox = Math.floor((vw - cols*cell)/2);
     const oy = Math.floor((vh - rows*cell)/2);
     return { cols, rows, cell, ox, oy };
   }
-
-  // ----- Game State -----
   let grid = gridFromViewport();
   window.addEventListener('resize', () => { grid = gridFromViewport(); });
 
@@ -229,7 +235,7 @@
       tickAcc: 0,
       levelUpEvery: 6,  // every 6 food, increase speed
       steps: 0,
-      paused: true      // START PAUSED per your request; we show fade & RESUME button
+      paused: true      // start paused (button shows RESUME)
     };
   }
 
@@ -251,22 +257,20 @@
     hudSpeed.textContent = "SPEED " + (G.speed/6).toFixed(1) + "x";
     hudLen.textContent   = "LEN " + G.snake.length;
 
-    // Button label
     pauseBtn.textContent = (G.paused && G.alive) ? "RESUME" : (G.alive ? "PAUSE" : "RESTART");
 
-    // dynamic color vibe based on speed – just for fun
     const root = document.documentElement;
     if (G.speed < 7.5) {
-      root.style.setProperty('--gridGlow', '#00ff4c');
+      root.style.setProperty('--gridGlow', '#00ff4c'); // green
     } else if (G.speed < 9.5) {
-      root.style.setProperty('--gridGlow', '#ffb020');
+      root.style.setProperty('--gridGlow', '#ffb020'); // amber
     } else {
-      root.style.setProperty('--gridGlow', '#ff3b30');
+      root.style.setProperty('--gridGlow', '#ff3b30'); // red
     }
   }
 
   // ----- Controls -----
-  // Keyboard fallback
+  // Fallback keyboard (many iframes block keys; touch/pointer still works)
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'a') turnLeft();
     if (e.key === 'ArrowRight'|| e.key === 'd') turnRight();
@@ -274,9 +278,9 @@
     if (e.key === 'r') restart();
   });
 
-  // Touch buttons
+  // Pointer-only main input (reliable inside iframes)
   const tap = (fn) => (ev) => { ev.preventDefault(); fn(); };
-  ['touchstart','pointerdown','mousedown'].forEach(evt=>{
+  ['pointerdown','mousedown','touchstart'].forEach(evt=>{
     btnLeft.addEventListener(evt, tap(turnLeft), {passive:false});
     btnRight.addEventListener(evt, tap(turnRight), {passive:false});
     pauseBtn.addEventListener(evt, tap(togglePause), {passive:false});
@@ -285,41 +289,31 @@
 
   // Whole-screen quick turns: tap left/right halves to rotate
   canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     if (x < rect.width/2) turnLeft(); else turnRight();
-  });
+  }, {passive:false});
 
-  // Swipe detection
+  // Swipe detection (also pointer-based)
   let swipeStart = null;
   const SWIPE_MIN = 20; // px threshold
-  function onStart(x,y){ swipeStart = {x,y}; }
-  function onEnd(x,y){
+  canvas.addEventListener('pointerdown', (e) => { swipeStart = {x:e.clientX, y:e.clientY}; }, {passive:false});
+  canvas.addEventListener('pointerup',   (e) => {
     if (!swipeStart) return;
-    const dx = x - swipeStart.x;
-    const dy = y - swipeStart.y;
-    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) { swipeStart = null; return; }
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx < 0 && G.dir !== DIR.RIGHT) setDir(DIR.LEFT);
-      else if (dx > 0 && G.dir !== DIR.LEFT) setDir(DIR.RIGHT);
-    } else {
-      if (dy < 0 && G.dir !== DIR.DOWN) setDir(DIR.UP);
-      else if (dy > 0 && G.dir !== DIR.UP) setDir(DIR.DOWN);
+    const dx = e.clientX - swipeStart.x;
+    const dy = e.clientY - swipeStart.y;
+    if (Math.abs(dx) >= SWIPE_MIN || Math.abs(dy) >= SWIPE_MIN) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0 && G.dir !== DIR.RIGHT) setDir(DIR.LEFT);
+        else if (dx > 0 && G.dir !== DIR.LEFT) setDir(DIR.RIGHT);
+      } else {
+        if (dy < 0 && G.dir !== DIR.DOWN) setDir(DIR.UP);
+        else if (dy > 0 && G.dir !== DIR.UP) setDir(DIR.DOWN);
+      }
     }
     swipeStart = null;
-  }
-
-  canvas.addEventListener('touchstart', (e) => {
-    const t = e.changedTouches[0];
-    onStart(t.clientX, t.clientY);
-  }, {passive:true});
-  canvas.addEventListener('touchend', (e) => {
-    const t = e.changedTouches[0];
-    onEnd(t.clientX, t.clientY);
-  }, {passive:true});
-
-  canvas.addEventListener('pointerdown', (e) => { onStart(e.clientX, e.clientY); });
-  canvas.addEventListener('pointerup',   (e) => { onEnd(e.clientX, e.clientY); });
+  }, {passive:false});
 
   function setDir(d){ G.nextDir = d; }
   function turnLeft(){ setDir((G.dir + 3) % 4); }
@@ -361,7 +355,7 @@
     const ny = head.y + (G.dir===DIR.DOWN?1:G.dir===DIR.UP?-1:0);
     const newHead = {x:nx, y:ny};
 
-    // wall wrap (classic snake feel)
+    // wall wrap
     newHead.x = (newHead.x + grid.cols) % grid.cols;
     newHead.y = (newHead.y + grid.rows) % grid.rows;
 
@@ -369,7 +363,6 @@
     for (let i=0;i<G.snake.length;i++){
       if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y) {
         G.alive = false;
-        // Show "RESTART" on pause button for clarity
         pauseBtn.textContent = "RESTART";
         return;
       }
@@ -385,7 +378,7 @@
       }
       G.food = spawnFood(G.snake);
     } else {
-      G.snake.pop(); // move forward
+      G.snake.pop();
     }
 
     G.steps++;
@@ -416,7 +409,6 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,w,h);
 
-    // Draw food & snake
     const c = grid.cell, ox = grid.ox, oy = grid.oy;
 
     // Food (pulsing orb)
@@ -433,7 +425,7 @@
     circle(fx, fy, Math.max(4, c*0.22*(1+pulse)));
     ctx.restore();
 
-    // Snake
+    // Snake (glow uses dynamic color)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const glow = getComputedStyle(document.documentElement).getPropertyValue('--gridGlow').trim() || '#00ff4c';
@@ -450,10 +442,10 @@
     }
     ctx.restore();
 
-    // --- Subtle fade when paused or dead ---
+    // Subtle fade when paused or dead
     if (G.paused || !G.alive) {
       ctx.save();
-      ctx.fillStyle = "rgba(0,0,0,0.28)"; // soft veil
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
       ctx.fillRect(0,0,w,h);
       ctx.restore();
     }
