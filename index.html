@@ -11,6 +11,7 @@
     --gridGlow: #00ff4c;   /* green default */
     --hud: #e8e8e8;
     --hudDim: #9aa0a6;
+    --radius: 16px;
     --halo: rgba(255,255,255,0.12);
     --halo-strong: rgba(255,255,255,0.25);
     --brand: rgba(255,255,255,0.9);
@@ -31,7 +32,6 @@
       radial-gradient(900px 600px at 50% 50%, rgba(54,168,255,0.05), transparent 60%),
       radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,0.6), rgba(0,0,0,1));
   }
-
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: auto; }
 
   /* HUD */
@@ -99,11 +99,10 @@
     <div class="hud" id="hud" aria-label="HUD">
       <div class="hud-left">
         <div class="badge" id="score">SCORE 0</div>
-        <div class="badge" id="speed">SPEED 12 CPS</div>
         <div class="badge" id="length">LEN 1</div>
       </div>
 
-      <!-- SPEED CONTROLS (Medium = slowest) -->
+      <!-- SPEED CONTROLS (Medium = slowest, default) -->
       <div class="hud-center" aria-label="Speed Controls">
         <div class="ctl active" id="mediumBtn" role="button" tabindex="0" aria-pressed="true">MEDIUM</div>
         <div class="ctl" id="fastBtn"   role="button" tabindex="0" aria-pressed="false">FAST</div>
@@ -132,7 +131,6 @@
   const ctx = canvas.getContext('2d', { alpha: false });
 
   const hudScore = document.getElementById('score');
-  const hudSpeed = document.getElementById('speed');
   const hudLen   = document.getElementById('length');
 
   const restartBtn = document.getElementById('restartBtn');
@@ -144,8 +142,15 @@
   const streak     = document.getElementById('streak');
 
   /* --------- Config --------- */
-  const SPEED_LEVELS = { Medium: 12, Fast: 18, Hyper: 24 }; // CPS
+  // Medium is slowest as requested
+  const SPEED_LEVELS = { Medium: 12, Fast: 18, Hyper: 24 }; // base CPS
   let currentLevel = localStorage.getItem('orbRunnerLevel') || 'Medium';
+
+  // Length-based bonus: +1 CPS per 5 segments, capped +10 CPS
+  function speedFromLength(base, len){
+    const bonus = Math.min(10, Math.floor(Math.max(0, len - 1) / 5));
+    return base + bonus;
+  }
 
   const DIR = { LEFT:0, UP:1, RIGHT:2, DOWN:3 };
 
@@ -175,21 +180,38 @@
     return { cols, rows, cell, ox, oy };
   }
   let grid = gridFromViewport();
-  window.addEventListener('resize', () => { grid = gridFromViewport(); });
+
+  // Defer grid updates while alive to keep speed visually constant
+  let resizeTimer = null, pendingResize = false;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!G.alive) {
+        grid = gridFromViewport();
+      } else {
+        pendingResize = true; // apply when dead/restart
+      }
+      fitCanvas();
+    }, 250);
+  });
 
   /* --------- Game State --------- */
   function newGame() {
+    if (pendingResize) { grid = gridFromViewport(); pendingResize = false; }
     const midx = Math.floor(grid.cols/2), midy = Math.floor(grid.rows/2);
+    const base = SPEED_LEVELS[currentLevel];
+    const effective = speedFromLength(base, 1);
+    const step = 1 / Math.max(1, effective);
     return {
       snake: [{x:midx, y:midy}],
+      prevSnake: [{x:midx, y:midy}],  // for interpolation
       dir: DIR.RIGHT, nextDir: DIR.RIGHT,
       food: spawnFood([{x:midx,y:midy}]),
       score: 0, alive: true,
-      speed: SPEED_LEVELS[currentLevel],    // CPS
+      baseSpeed: base,  // base tier CPS
+      speed: effective, // effective CPS (with length bonus)
       tickAcc: 0,
-      // For interpolation: snapshot of snake BEFORE last tick
-      prevSnake: [{x:midx,y:midy}],
-      prevFood: null, // not used visually but kept for completeness
+      lastStepTime: step,
       steps: 0
     };
   }
@@ -204,17 +226,18 @@
 
   let G = newGame();
 
-  /* --------- HUD --------- */
+  /* --------- HUD (no speed) --------- */
+  let lastHudMs = 0;
   function updateHUD(){
     hudScore.textContent = "SCORE " + G.score;
-    hudSpeed.textContent = "SPEED " + G.speed.toFixed(0) + " CPS";
     hudLen.textContent   = "LEN " + G.snake.length;
 
-    // Adaptive glow based on selected tier (readable thresholds)
+    // Glow color keyed to effective speed
     const root = document.documentElement;
-    if (G.speed <= SPEED_LEVELS.Medium) root.style.setProperty('--gridGlow', '#00ff4c');  // green
-    else if (G.speed < SPEED_LEVELS.Hyper) root.style.setProperty('--gridGlow', '#ffb020'); // amber
-    else root.style.setProperty('--gridGlow', '#ff3b30'); // red
+    const s = G.speed;
+    if (s <= SPEED_LEVELS.Medium + 3) root.style.setProperty('--gridGlow', '#00ff4c');   // green
+    else if (s < SPEED_LEVELS.Hyper)  root.style.setProperty('--gridGlow', '#ffb020');   // amber
+    else                              root.style.setProperty('--gridGlow', '#ff3b30');   // red
 
     // button active states
     [mediumBtn, fastBtn, hyperBtn].forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
@@ -222,11 +245,33 @@
     if (currentLevel === 'Fast')   { fastBtn.classList.add('active');   fastBtn.setAttribute('aria-pressed','true'); }
     if (currentLevel === 'Hyper')  { hyperBtn.classList.add('active');  hyperBtn.setAttribute('aria-pressed','true'); }
   }
+  function maybeUpdateHUD(nowMs){
+    if (nowMs - lastHudMs > 100) { // ~10 Hz
+      updateHUD();
+      lastHudMs = nowMs;
+    }
+  }
+
+  /* --------- Speed management with hitch-free rescale --------- */
+  function setEffectiveSpeed(newSpeed){
+    const oldStep = G.lastStepTime;
+    const newStep = 1 / Math.max(1, newSpeed);
+    // Rescale accumulator to avoid a visible hitch on speed change
+    G.tickAcc = Math.min(newStep, G.tickAcc * (newStep / oldStep));
+    G.speed = newSpeed;
+    G.lastStepTime = newStep;
+  }
+
+  function applyLengthSpeed(){
+    const effective = speedFromLength(G.baseSpeed, G.snake.length);
+    setEffectiveSpeed(effective);
+  }
 
   function setSpeedLevel(level){
     currentLevel = level;
     localStorage.setItem('orbRunnerLevel', level);
-    G.speed = SPEED_LEVELS[level];
+    G.baseSpeed = SPEED_LEVELS[level];
+    applyLengthSpeed(); // recalculates with current length and rescales accumulator
     updateHUD();
   }
 
@@ -301,12 +346,11 @@
   function swipeClear(){ streak.style.opacity = '0'; swipePad.classList.remove('pulse'); }
 
   /* --------- Simulation + Interpolation --------- */
-  // We keep a copy of snake positions before applying a tick.
-  // During draw(), we interpolate each segment between prevSnake[i] -> snake[i].
+  const wrap = (v, m) => (v + m) % m;
   function snapshotSnake(arr) { return arr.map(p => ({x:p.x, y:p.y})); }
 
   function tick(){
-    // Prepare previous positions for interpolation
+    // For interpolation
     G.prevSnake = snapshotSnake(G.snake);
 
     G.dir = validateTurn(G.dir, G.nextDir);
@@ -325,7 +369,8 @@
     if (newHead.x === G.food.x && newHead.y === G.food.y) {
       G.score += 1;
       G.food = spawnFood(G.snake);
-      // No auto-speed ramp — user controls speed tier
+      // Length changed -> recompute effective speed and rescale accumulator
+      applyLengthSpeed();
     } else {
       G.snake.pop();
     }
@@ -340,16 +385,16 @@
         (cur===DIR.DOWN && nxt===DIR.UP)) return cur;
     return nxt;
   }
-  const wrap = (v, m) => (v + m) % m;
 
   /* --------- Main Loop (fixed-step sim, interpolated render) --------- */
   let last = performance.now();
   function loop(now){
-    const dt = Math.min(0.06, (now - last)/1000); // cap for tab-thrashes
+    const dt = Math.min(0.06, (now - last)/1000); // cap for tab thrash
     last = now;
 
     if (G.alive) {
-      const stepTime = 1/Math.max(1, G.speed); // seconds per cell
+      const stepTime = 1 / Math.max(1, G.speed);
+      G.lastStepTime = stepTime; // record for this frame's interpolation
       G.tickAcc += dt;
       while (G.tickAcc >= stepTime) {
         tick();
@@ -357,7 +402,7 @@
       }
     }
 
-    draw(); // uses interpolation factor based on tickAcc
+    draw();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -375,11 +420,10 @@
 
     const c = grid.cell, ox = grid.ox, oy = grid.oy;
 
-    // Interpolation factor (0..1) for sub-cell movement
-    const stepTime = 1/Math.max(1, G.speed);
-    const f = clamp01(G.tickAcc / stepTime);
+    // Interpolation factor (0..1)
+    const f = clamp01(G.tickAcc / G.lastStepTime);
 
-    // Food (pulsing orb)
+    // Food (pulsing)
     const t = performance.now()*0.002;
     const pulse = 0.4 + 0.2*Math.sin(t);
     const fx = ox + G.food.x*c + c/2;
@@ -392,27 +436,21 @@
     circle(fx, fy, Math.max(4, c*0.22*(1+pulse)));
     ctx.restore();
 
-    // Snake (interpolated between prevSnake and current snake)
+    // Snake (interpolated)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const glow = getComputedStyle(document.documentElement).getPropertyValue('--gridGlow').trim() || '#00ff4c';
     ctx.shadowBlur = 22; ctx.shadowColor = glow;
 
     const rgbaCache = {};
-    function glowRGBA(alpha){
-      if (!rgbaCache[alpha]) rgbaCache[alpha] = hexToRGBA(glow, alpha);
-      return rgbaCache[alpha];
-    }
+    function glowRGBA(alpha){ return rgbaCache[alpha] || (rgbaCache[alpha] = hexToRGBA(glow, alpha)); }
 
-    const segCount = G.snake.length;
-    for (let i=0;i<segCount;i++){
+    for (let i=0;i<G.snake.length;i++){
       const cur = G.snake[i];
-      // If prevSnake shorter (just after growth), fallback to current
       const prv = (G.prevSnake[i] || cur);
 
-      // Compute delta with wrap-aware shortest path
-      let dx = cur.x - prv.x;
-      let dy = cur.y - prv.y;
+      // Wrap-aware shortest path
+      let dx = cur.x - prv.x, dy = cur.y - prv.y;
       if (dx >  grid.cols/2)  dx -= grid.cols;
       if (dx < -grid.cols/2)  dx += grid.cols;
       if (dy >  grid.rows/2)  dy -= grid.rows;
@@ -430,8 +468,8 @@
     }
     ctx.restore();
 
-    // HUD update (cheap enough)
-    updateHUD();
+    // HUD (throttled)
+    maybeUpdateHUD(performance.now());
 
     // Fade on death
     if (!G.alive) {
@@ -449,7 +487,17 @@
   }
 
   /* --------- Boot --------- */
-  updateHUD(); // start running immediately
+  // Initialize tier selection / base speed then compute effective speed & HUD
+  (function init(){
+    // reflect stored level on buttons
+    if (currentLevel !== 'Medium') { [mediumBtn, fastBtn, hyperBtn].forEach(b=>b.classList.remove('active')); }
+    if (currentLevel === 'Fast')   fastBtn.classList.add('active');
+    if (currentLevel === 'Hyper')  hyperBtn.classList.add('active');
+
+    G.baseSpeed = SPEED_LEVELS[currentLevel];
+    applyLengthSpeed();
+    updateHUD();
+  })();
 })();
 </script>
 </body>
