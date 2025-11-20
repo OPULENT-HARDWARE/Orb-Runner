@@ -3,19 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Orb Runner — Cosmic BG (Iframe Optimized)</title>
+<title>Orb Runner — BY OPULENT HARDWARE (Iframe Optimized)</title>
 <style>
   :root{
-    /* Cosmic palette */
-    --bg:#060612;
-    --nebula1:#5b3bff;   /* indigo */
-    --nebula2:#1aa4ff;   /* cyan   */
-    --nebula3:#ff6b2c;   /* orange */
-    --star:#ffffff;
+    --bg:#000000;
     --snake:#11d36d;     /* base green */
-    --snake-warn:#ffb020;/* amber     */
-    --snake-hot:#ff3b30; /* red       */
-    --food:#36a8ff;      /* blue      */
+    --snake-warn:#ffb020;/* amber */
+    --snake-hot:#ff3b30; /* red   */
+    --food:#36a8ff;      /* blue  */
     --hud:#e8e8e8;
     --brand:rgba(255,255,255,0.9);
   }
@@ -25,7 +20,7 @@
     overscroll-behavior:none; touch-action:none; -webkit-user-select:none; user-select:none;
   }
   * { -webkit-tap-highlight-color: transparent; }
-  .stage { position:fixed; inset:0; background:var(--bg); }
+  .stage { position:fixed; inset:0; background:#000; }
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:auto; }
 
   /* HUD */
@@ -115,7 +110,7 @@
   // Config (tiers + ramp)
   const SPEED_LEVELS = { Medium:12, Fast:18, Hyper:24 }; // base CPS (Medium is slowest)
   let currentLevel = 'Medium';
-  const lengthBonus = (len) => Math.min(10, Math.floor(Math.max(0, len-1)/5)); // +1 CPS / 5 segments, cap +10
+  const lengthBonus = (len) => Math.min(10, Math.floor(Math.max(0, len-1)/5)); // +1 CPS / 5 segs, cap +10
   const effectiveSpeed = (base, len) => base + lengthBonus(len);
 
   // Helpers
@@ -124,8 +119,6 @@
   const prevent = fn => e=>{ e.preventDefault(); fn(e); };
   const clamp01 = v => v<0?0:(v>1?1:v);
   const wrap = (v,m) => (v+m)%m;
-  const CSS = getComputedStyle(document.documentElement);
-  const colorVar = name => CSS.getPropertyValue(name).trim();
 
   // Canvas & grid (DPR clamped to 1 for lighter compositing)
   let DPR = 1;
@@ -133,7 +126,6 @@
     const w = canvas.clientWidth, h = canvas.clientHeight;
     canvas.width = Math.round(w * DPR); canvas.height = Math.round(h * DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
-    buildBackground(); // rebuild offscreen background on resize
   }
   new ResizeObserver(fitCanvas).observe(canvas); fitCanvas();
 
@@ -151,94 +143,7 @@
   let resizeTimer=null;
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{ grid=gridFromViewport(); fitCanvas(); }, 150); });
 
-  // ---------- Procedural cosmic background ----------
-  let bgCanvas, bgCtx, twinkleStars=[];
-  function buildBackground(){
-    const w = canvas.width, h = canvas.height;
-    bgCanvas = document.createElement('canvas');
-    bgCanvas.width = w; bgCanvas.height = h;
-    bgCtx = bgCanvas.getContext('2d');
-
-    // Base fill
-    bgCtx.fillStyle = colorVar('--bg') || '#060612';
-    bgCtx.fillRect(0,0,w,h);
-
-    // Soft nebula clouds: 3–4 large radial gradients
-    drawNebula(bgCtx, w, h);
-
-    // Starfield: many faint stars (static)
-    drawStaticStars(bgCtx, w, h, 220); // count
-
-    // Twinklers: small set we animate each frame
-    twinkleStars = makeTwinkleStars(w, h, 36);
-  }
-
-  function drawNebula(c, w, h){
-    // helper for a radial gradient blob
-    function blob(x, y, r, color, alpha){
-      const g = c.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, hexWithA(color, alpha));
-      g.addColorStop(1, hexWithA(color, 0));
-      c.fillStyle = g;
-      c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
-    }
-    const w2=w/2, h2=h/2;
-    blob(w2*0.55, h2*0.45, Math.max(w,h)*0.55, colorVar('--nebula1')||'#5b3bff', 0.18);
-    blob(w2*0.35, h2*0.65, Math.max(w,h)*0.60, colorVar('--nebula2')||'#1aa4ff', 0.14);
-    blob(w2*0.85, h2*0.75, Math.max(w,h)*0.50, colorVar('--nebula3')||'#ff6b2c', 0.10);
-    blob(w2*0.15, h2*0.30, Math.max(w,h)*0.40, colorVar('--nebula1')||'#5b3bff', 0.10);
-  }
-
-  function drawStaticStars(c, w, h, count){
-    const star = colorVar('--star') || '#ffffff';
-    c.fillStyle = star;
-    for (let i=0;i<count;i++){
-      const x = Math.random()*w;
-      const y = Math.random()*h;
-      const r = Math.random()<0.85 ? 0.6 : 1.0; // mostly faint
-      c.globalAlpha = 0.25 + Math.random()*0.25;
-      c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill();
-    }
-    c.globalAlpha = 1;
-  }
-
-  function makeTwinkleStars(w, h, count){
-    const arr = [];
-    for (let i=0;i<count;i++){
-      arr.push({
-        x: Math.random()*w,
-        y: Math.random()*h,
-        r: 0.9 + Math.random()*1.2,
-        base: 0.35 + Math.random()*0.25,
-        amp: 0.25 + Math.random()*0.35,
-        // different speeds/phases so they don't sync
-        speed: 0.5 + Math.random()*1.2,
-        phase: Math.random()*Math.PI*2
-      });
-    }
-    return arr;
-  }
-
-  function drawTwinkles(c, t){
-    const star = colorVar('--star') || '#ffffff';
-    c.fillStyle = star;
-    for (const s of twinkleStars){
-      const a = s.base + s.amp * 0.5*(1+Math.sin(s.phase + t*s.speed));
-      c.globalAlpha = a;
-      c.beginPath(); c.arc(s.x, s.y, s.r, 0, Math.PI*2); c.fill();
-    }
-    c.globalAlpha = 1;
-  }
-
-  function hexWithA(hex, a){
-    // accept #rgb or #rrggbb
-    const h = hex.replace('#','');
-    const v = parseInt(h.length===3 ? h.split('').map(ch=>ch+ch).join('') : h, 16);
-    const r=(v>>16)&255, g=(v>>8)&255, b=v&255;
-    return `rgba(${r},${g},${b},${a})`;
-  }
-
-  // ---------- Game state ----------
+  // Game state
   function snapshotSnake(a){ return a.map(p=>({x:p.x,y:p.y})); }
   function spawnFood(blocked){
     const used = new Set(blocked.map(p=>p.x+','+p.y));
@@ -257,13 +162,12 @@
       food: spawnFood([{x:midx,y:midy}]),
       score:0, alive:true,
       baseSpeed: base, speed: eff,
-      tickAcc:0, lastStepTime: step, steps:0,
-      _cellAcc:0
+      tickAcc:0, lastStepTime: step, steps:0
     };
   }
   let G = newGame();
 
-  // HUD
+  // HUD (no speed text)
   function updateHUD(){
     hudScore.textContent = "SCORE " + G.score;
     hudLen.textContent   = "LEN " + G.snake.length;
@@ -281,8 +185,15 @@
     G.tickAcc = Math.min(newStep, G.tickAcc * (newStep/oldStep));
     G.speed = newSpeed; G.lastStepTime = newStep;
   }
-  function applyLengthSpeed(){ setEffectiveSpeed(effectiveSpeed(G.baseSpeed, G.snake.length)); }
-  function setSpeedLevel(level){ currentLevel = level; G.baseSpeed = SPEED_LEVELS[level]; applyLengthSpeed(); updateHUD(); }
+  function applyLengthSpeed(){
+    setEffectiveSpeed(effectiveSpeed(G.baseSpeed, G.snake.length));
+  }
+  function setSpeedLevel(level){
+    currentLevel = level;
+    G.baseSpeed = SPEED_LEVELS[level];
+    applyLengthSpeed();
+    updateHUD();
+  }
 
   // Controls
   window.addEventListener('keydown', (e)=>{
@@ -324,7 +235,7 @@
   function showStreak(a){ streak.style.opacity='1'; streak.style.transform=`translateZ(0) rotate(${a}rad)`; clearTimeout(showStreak._t); showStreak._t=setTimeout(()=>{streak.style.opacity='0';},140); }
   function swipeClear(){ streak.style.opacity='0'; }
 
-  // Simulation (fixed 60 FPS step) + interpolation per-cell
+  // Simulation (fixed 60 FPS step) + interpolation
   const TARGET_FPS = 60;
   const STEP = 1 / TARGET_FPS;
   let last = performance.now();
@@ -333,21 +244,21 @@
     G.tickAcc += dt;
     while (G.tickAcc >= STEP){
       if (!G.alive) break;
-      fixedTick();
+      fixedTick(STEP);
       G.tickAcc -= STEP;
     }
-    draw(now*0.001, G.tickAcc / STEP);
+    draw(G.tickAcc / STEP);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 
-  function fixedTick(){
+  function fixedTick(/*step*/){
     // snapshot for interpolation
     G.prevSnake = snapshotSnake(G.snake);
 
-    // move when enough time for one cell has accumulated
+    // apply speed against fixed step: move when enough time for one cell has accumulated
     const cellTime = 1/Math.max(1,G.speed);
-    G._cellAcc += STEP;
+    G._cellAcc = (G._cellAcc || 0) + STEP;
     if (G._cellAcc < cellTime) return;
     G._cellAcc -= cellTime;
 
@@ -357,13 +268,14 @@
     const ny = wrap(head.y + (G.dir===DIR.DOWN?1:G.dir===DIR.UP?-1:0), grid.rows);
     const newHead = {x:nx, y:ny};
 
+    // self-collision
     for (let i=0;i<G.snake.length;i++){ if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y){ G.alive=false; return; } }
 
     G.snake.unshift(newHead);
     if (newHead.x===G.food.x && newHead.y===G.food.y){
       G.score += 1;
       G.food = spawnFood(G.snake);
-      setEffectiveSpeed(effectiveSpeed(G.baseSpeed, G.snake.length)); // ramp with length
+      setEffectiveSpeed(effectiveSpeed(G.baseSpeed, G.snake.length)); // ramp with length, hitch-free
     } else {
       G.snake.pop();
     }
@@ -376,34 +288,30 @@
     return nxt;
   }
 
-  // Draw (background -> twinkles -> food -> snake -> HUD fade)
-  function draw(t, f){
+  // Draw (cheap visuals, interpolated positions)
+  function draw(f){
+    // f is how far we are into the next fixed step (0..1). Combine with cell progress.
     const w = canvas.clientWidth, h = canvas.clientHeight;
-
-    // Background (offscreen)
-    ctx.drawImage(bgCanvas, 0, 0, w, h);
-
-    // Twinkling stars (few, cheap)
-    drawTwinkles(ctx, t);
+    ctx.clearRect(0,0,w,h); // cheap clear
 
     const c = grid.cell, ox = grid.ox, oy = grid.oy;
 
+    // pick snake color by current effective speed (no blur)
+    const s = G.speed;
+    let snakeColor = getComputedStyle(document.documentElement).getPropertyValue('--snake').trim();
+    if (s > 22) snakeColor = getComputedStyle(document.documentElement).getPropertyValue('--snake-hot').trim();
+    else if (s > 15) snakeColor = getComputedStyle(document.documentElement).getPropertyValue('--snake-warn').trim();
+
+    // Compute additional interpolation within the current cell move
+    const cellTime = 1/Math.max(1,G.speed);
+    const cellF = clamp01((G._cellAcc || 0) / cellTime);
+
     // FOOD (solid circle)
-    ctx.fillStyle = colorVar('--food') || '#36a8ff';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--food').trim() || '#36a8ff';
     const fx = ox + G.food.x*c + c/2, fy = oy + G.food.y*c + c/2;
     circle(fx, fy, Math.max(4, c*0.22));
 
-    // SNAKE (solid circles, interpolated within current cell)
-    // compute cell progress
-    const cellTime = 1/Math.max(1,G.speed);
-    const cellF = clamp01(G._cellAcc / cellTime);
-
-    // color based on speed tier
-    const s = G.speed;
-    let snakeColor = colorVar('--snake') || '#11d36d';
-    if (s > 22) snakeColor = colorVar('--snake-hot') || '#ff3b30';
-    else if (s > 15) snakeColor = colorVar('--snake-warn') || '#ffb020';
-
+    // SNAKE (solid circles, interpolated)
     ctx.fillStyle = snakeColor;
     for (let i=0;i<G.snake.length;i++){
       const cur = G.snake[i];
@@ -421,10 +329,11 @@
       circle(px, py, Math.max(4, c*0.24));
     }
 
-    // HUD text (updates each frame; very cheap)
+    // HUD
     hudScore.textContent = "SCORE " + G.score;
     hudLen.textContent   = "LEN " + G.snake.length;
 
+    // Fade on death (light)
     if (!G.alive){
       ctx.fillStyle = "rgba(0,0,0,0.2)";
       ctx.fillRect(0,0,w,h);
