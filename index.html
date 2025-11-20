@@ -251,9 +251,9 @@
       food: spawnFood([{x:midx,y:midy}]),
       score: 0,
       alive: true,
-      speed: 6,         // cells per second baseline
+      speed: 9,         // cells per second baseline (was 6)
       tickAcc: 0,
-      levelUpEvery: 6,  // every 6 food, increase speed
+      levelUpEvery: 4,  // speed up faster: every 4 food (was 6)
       steps: 0,
       paused: true      // start paused
     };
@@ -300,9 +300,9 @@
     if (e.key === 'ArrowDown' || e.key === 's') setDir(DIR.DOWN);
   });
 
-  // Buttons: use pointer + touch + click, non-passive, and preventDefault
-  on(pauseBtn,   ['pointerdown','touchstart','click'], prevent(()=>togglePause()), {passive:false});
-  on(restartBtn, ['pointerdown','touchstart','click'], prevent(()=>restart()),     {passive:false});
+  // Buttons: bind to release to avoid double toggles
+  on(pauseBtn,   ['pointerup','click'], prevent(togglePause), {passive:false});
+  on(restartBtn, ['pointerup','click'], prevent(restart),     {passive:false});
 
   function togglePause(){
     if (!G.alive) { restart(); return; }
@@ -422,7 +422,7 @@
     if (newHead.x === G.food.x && newHead.y === G.food.y) {
       G.score += 1;
       if (G.score % G.levelUpEvery === 0) {
-        G.speed = Math.min(12, G.speed + 0.8);
+        G.speed = Math.min(14, G.speed + 1.0);
       }
       G.food = spawnFood(G.snake);
     } else {
