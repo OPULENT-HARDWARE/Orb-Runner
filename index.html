@@ -17,7 +17,6 @@
     --brand: rgba(255,255,255,0.9);
   }
 
-  /* Global hardening for iframe/touch */
   html, body {
     height: 100%;
     width: 100%;
@@ -26,7 +25,7 @@
     color: var(--hud);
     font-family: "Saira", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     overscroll-behavior: none;
-    touch-action: none;               /* capture gestures inside iframe */
+    touch-action: none;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
@@ -48,10 +47,10 @@
     width: 100%;
     height: 100%;
     display: block;
-    pointer-events: auto; /* ensure pointer events land even inside strict iframes */
+    pointer-events: auto;
   }
 
-  /* Top HUD: grid 3 columns: left (stats), center (controls), right (brand) */
+  /* HUD */
   .hud {
     position: absolute;
     left: 12px;
@@ -62,15 +61,15 @@
     align-items: center;
     gap: 10px;
     text-shadow: 0 0 10px rgba(0,0,0,0.6);
-    z-index: 100;             /* be above canvas */
-    pointer-events: none;     /* only buttons re-enable */
+    z-index: 100;
+    pointer-events: none;
   }
   .hud-left, .hud-center, .hud-right {
     display: flex; align-items: center; gap: 10px;
   }
   .hud-left  { justify-content: flex-start; pointer-events: none; }
-  .hud-center{ justify-content: center;     pointer-events: auto; } /* interactive */
-  .hud-right { justify-content: flex-end;   pointer-events: none;  } /* label only */
+  .hud-center{ justify-content: center;     pointer-events: auto; }
+  .hud-right { justify-content: flex-end;   pointer-events: none; }
 
   .badge {
     padding: 6px 10px;
@@ -100,9 +99,14 @@
     user-select: none;
   }
   .ctl:active { transform: scale(0.98); }
+  .ctl.active {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.3);
+  }
+
   .brand { white-space: nowrap; font-weight: 700; color: var(--brand); opacity: 0.95; }
 
-  /* Glass Halo Orb Swipe Pad */
+  /* Swipe Pad */
   .swipe-wrap{
     position: absolute;
     bottom: 22px;
@@ -112,7 +116,7 @@
     height: min(38vw, 220px);
     display: grid;
     place-items: center;
-    z-index: 100;                  /* above canvas */
+    z-index: 100;
     pointer-events: auto;
   }
   .swipe-pad{
@@ -134,7 +138,6 @@
     border-radius:50%;
     border: 1px dashed rgba(255,255,255,0.12);
   }
-  /* streak line */
   .streak{
     position: absolute;
     width: 6%;
@@ -149,9 +152,7 @@
     transition: opacity 120ms ease;
     pointer-events: none;
   }
-  .pulse{
-    animation: halo 260ms ease;
-  }
+  .pulse{ animation: halo 260ms ease; }
   @keyframes halo {
     0%   { box-shadow: 0 0 18px var(--halo), inset 0 0 22px rgba(255,255,255,0.06); border-color: var(--halo); }
     50%  { box-shadow: 0 0 26px var(--halo-strong), inset 0 0 28px rgba(255,255,255,0.14); border-color: var(--halo-strong); }
@@ -163,27 +164,28 @@
   <div class="stage">
     <canvas id="game"></canvas>
 
-    <!-- TOP HUD -->
+    <!-- HUD -->
     <div class="hud" id="hud" aria-label="HUD">
       <div class="hud-left">
         <div class="badge" id="score">SCORE 0</div>
-        <div class="badge" id="speed">SPEED 1.0x</div>
+        <div class="badge" id="speed">SPEED 12 CPS</div>
         <div class="badge" id="length">LEN 1</div>
       </div>
 
-      <!-- CENTERED CONTROLS -->
-      <div class="hud-center">
-        <div class="ctl" id="pauseBtn" role="button" tabindex="0">RESUME</div>
+      <!-- SPEED CONTROLS -->
+      <div class="hud-center" aria-label="Speed Controls">
+        <div class="ctl" id="slowBtn"   role="button" tabindex="0" aria-pressed="false">SLOW</div>
+        <div class="ctl active" id="mediumBtn" role="button" tabindex="0" aria-pressed="true">MEDIUM</div>
+        <div class="ctl" id="fastBtn"   role="button" tabindex="0" aria-pressed="false">FAST</div>
         <div class="ctl" id="restartBtn" role="button" tabindex="0">RESTART</div>
       </div>
 
-      <!-- RIGHT BRAND -->
       <div class="hud-right">
         <div class="brand">Orb Runner — BY OPULENT HARDWARE</div>
       </div>
     </div>
 
-    <!-- Glass Halo Orb Swipe Pad -->
+    <!-- Swipe Pad -->
     <div class="swipe-wrap" id="swipeWrap" aria-label="Swipe Pad">
       <div class="swipe-pad" id="swipePad">
         <div class="streak" id="streak"></div>
@@ -202,17 +204,22 @@
   const hudSpeed = document.getElementById('speed');
   const hudLen   = document.getElementById('length');
 
-  const pauseBtn   = document.getElementById('pauseBtn');
   const restartBtn = document.getElementById('restartBtn');
+  const slowBtn    = document.getElementById('slowBtn');
+  const mediumBtn  = document.getElementById('mediumBtn');
+  const fastBtn    = document.getElementById('fastBtn');
 
   const swipePad   = document.getElementById('swipePad');
   const streak     = document.getElementById('streak');
 
-  /* ====== Robust event utility for iframe ====== */
+  const SPEED_LEVELS = { Slow: 8, Medium: 12, Fast: 16 };
+  let currentLevel = 'Medium';
+
+  /* event helpers */
   const on = (el, evts, fn, opts={}) => evts.forEach(evt => el.addEventListener(evt, fn, opts));
   const prevent = fn => (e)=>{ e.preventDefault(); fn(e); };
 
-  // ----- Sizing / DPR crispness -----
+  /* DPR + canvas size */
   let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   function fitCanvas(){
     const w = canvas.clientWidth;
@@ -224,7 +231,7 @@
   new ResizeObserver(fitCanvas).observe(canvas);
   fitCanvas();
 
-  // ----- Grid config -----
+  /* Grid from viewport */
   function gridFromViewport() {
     const vw = canvas.clientWidth;
     const vh = canvas.clientHeight;
@@ -251,11 +258,9 @@
       food: spawnFood([{x:midx,y:midy}]),
       score: 0,
       alive: true,
-      speed: 9,         // cells per second baseline (was 6)
+      speed: SPEED_LEVELS[currentLevel], // fixed by user selection
       tickAcc: 0,
-      levelUpEvery: 4,  // speed up faster: every 4 food (was 6)
-      steps: 0,
-      paused: true      // start paused
+      steps: 0
     };
   }
 
@@ -271,28 +276,39 @@
 
   let G = newGame();
 
-  // ----- HUD -----
+  /* HUD update */
   function updateHUD(){
     hudScore.textContent = "SCORE " + G.score;
-    hudSpeed.textContent = "SPEED " + (G.speed/6).toFixed(1) + "x";
+    hudSpeed.textContent = "SPEED " + G.speed.toFixed(0) + " CPS";
     hudLen.textContent   = "LEN " + G.snake.length;
 
-    pauseBtn.textContent = (G.paused && G.alive) ? "RESUME" : (G.alive ? "PAUSE" : "RESTART");
-
     const root = document.documentElement;
-    if (G.speed < 7.5) {
-      root.style.setProperty('--gridGlow', '#00ff4c');
-    } else if (G.speed < 9.5) {
-      root.style.setProperty('--gridGlow', '#ffb020');
+    if (G.speed <= SPEED_LEVELS.Slow) {
+      root.style.setProperty('--gridGlow', '#00ff4c');  // green
+    } else if (G.speed < SPEED_LEVELS.Fast) {
+      root.style.setProperty('--gridGlow', '#ffb020');  // amber
     } else {
-      root.style.setProperty('--gridGlow', '#ff3b30');
+      root.style.setProperty('--gridGlow', '#ff3b30');  // red
     }
+
+    // button active states
+    [slowBtn, mediumBtn, fastBtn].forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
+    if (currentLevel === 'Slow')   { slowBtn.classList.add('active'); slowBtn.setAttribute('aria-pressed','true'); }
+    if (currentLevel === 'Medium') { mediumBtn.classList.add('active'); mediumBtn.setAttribute('aria-pressed','true'); }
+    if (currentLevel === 'Fast')   { fastBtn.classList.add('active'); fastBtn.setAttribute('aria-pressed','true'); }
   }
 
-  // ----- Controls -----
-  // Keyboard fallback (may be blocked in iframe—pointer/touch is primary)
+  function setSpeedLevel(level){
+    currentLevel = level;
+    G.speed = SPEED_LEVELS[level];
+    updateHUD();
+  }
+
+  /* Controls: keyboard (optional) */
   window.addEventListener('keydown', (e) => {
-    if (e.key === ' ') togglePause();
+    if (e.key === '1') setSpeedLevel('Slow');
+    if (e.key === '2') setSpeedLevel('Medium');
+    if (e.key === '3') setSpeedLevel('Fast');
     if (e.key === 'r') restart();
     if (e.key === 'ArrowLeft' || e.key === 'a') setDir((G.dir + 3) % 4);
     if (e.key === 'ArrowRight'|| e.key === 'd') setDir((G.dir + 1) % 4);
@@ -300,15 +316,11 @@
     if (e.key === 'ArrowDown' || e.key === 's') setDir(DIR.DOWN);
   });
 
-  // Buttons: bind to release to avoid double toggles
-  on(pauseBtn,   ['pointerup','click'], prevent(togglePause), {passive:false});
-  on(restartBtn, ['pointerup','click'], prevent(restart),     {passive:false});
-
-  function togglePause(){
-    if (!G.alive) { restart(); return; }
-    G.paused = !G.paused;
-    updateHUD();
-  }
+  /* Buttons */
+  on(restartBtn, ['pointerup','click'], prevent(()=>restart()), {passive:false});
+  on(slowBtn,    ['pointerup','click'], prevent(()=>setSpeedLevel('Slow')),   {passive:false});
+  on(mediumBtn,  ['pointerup','click'], prevent(()=>setSpeedLevel('Medium')), {passive:false});
+  on(fastBtn,    ['pointerup','click'], prevent(()=>setSpeedLevel('Fast')),   {passive:false});
 
   function restart(){
     G = newGame();
@@ -318,9 +330,9 @@
 
   function setDir(d){ G.nextDir = d; }
 
-  // ----- Orb Swipe Pad (B1: instant flick) -----
+  /* Swipe pad flick */
   let swipeStart = null;
-  const SWIPE_MIN = 18; // px threshold for flick
+  const SWIPE_MIN = 18;
 
   on(swipePad, ['pointerdown','touchstart'], prevent((e)=>{
     const p = getPoint(e, swipePad);
@@ -335,17 +347,12 @@
     const mag = Math.hypot(dx, dy);
 
     if (mag >= SWIPE_MIN) {
-      const ang = Math.atan2(dy, dx); // radians
-      // show streak pointing that way
+      const ang = Math.atan2(dy, dx);
       showStreak(ang);
-      // choose cardinal
       const ax = Math.abs(dx), ay = Math.abs(dy);
       if (ax > ay) { setDir(dx < 0 ? DIR.LEFT : DIR.RIGHT); }
       else         { setDir(dy < 0 ? DIR.UP   : DIR.DOWN ); }
-      // unpause on first flick
-      if (G.paused && G.alive) { G.paused = false; }
     } else {
-      // light pulse on pad when tap too small
       pulsePad();
     }
     swipeStart = null;
@@ -367,12 +374,11 @@
     streak.style.opacity = '1';
     streak.style.transform = `translateZ(0) rotate(${angle}rad)`;
     pulsePad();
-    // hide after a short moment
     clearTimeout(showStreak._t);
     showStreak._t = setTimeout(()=>{ streak.style.opacity = '0'; }, 160);
   }
   function pulsePad(){
-    swipePad.classList.remove('pulse'); // restart animation
+    swipePad.classList.remove('pulse');
     void swipePad.offsetWidth;
     swipePad.classList.add('pulse');
   }
@@ -381,13 +387,13 @@
     swipePad.classList.remove('pulse');
   }
 
-  // ----- Game Loop -----
+  /* Game loop */
   let last = performance.now();
   function loop(now){
     const dt = Math.min(0.06, (now - last)/1000);
     last = now;
-    if (G.alive && !G.paused) {
-      const stepTime = 1/Math.max(1, G.speed);
+    if (G.alive) {
+      const stepTime = 1/Math.max(1, G.speed); // CPS
       G.tickAcc += dt;
       while (G.tickAcc >= stepTime) {
         tick();
@@ -412,7 +418,7 @@
     for (let i=0;i<G.snake.length;i++){
       if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y) {
         G.alive = false;
-        updateHUD(); // sets PAUSE btn text to RESTART
+        updateHUD();
         return;
       }
     }
@@ -421,10 +427,7 @@
 
     if (newHead.x === G.food.x && newHead.y === G.food.y) {
       G.score += 1;
-      if (G.score % G.levelUpEvery === 0) {
-        G.speed = Math.min(14, G.speed + 1.0);
-      }
-      G.food = spawnFood(G.snake);
+      G.food = spawnFood(G.snake);   // no auto speed ramp; user controls speed
     } else {
       G.snake.pop();
     }
@@ -441,16 +444,14 @@
     return nxt;
   }
 
-  // ----- Rendering -----
+  /* Rendering */
   function draw(){
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
 
-    // Clear
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,w,h);
 
-    // Vignette glow
     const grad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)*0.7);
     grad.addColorStop(0, "rgba(0,0,0,0)");
     grad.addColorStop(1, "rgba(0,0,0,0.6)");
@@ -459,7 +460,7 @@
 
     const c = grid.cell, ox = grid.ox, oy = grid.oy;
 
-    // Food (pulsing orb)
+    // Food
     const t = performance.now()*0.002;
     const pulse = 0.4 + 0.2*Math.sin(t);
     const fx = ox + G.food.x*c + c/2;
@@ -489,14 +490,6 @@
       circle(px, py, Math.max(4, c*0.24));
     }
     ctx.restore();
-
-    // Subtle fade when paused or dead
-    if (G.paused || !G.alive) {
-      ctx.save();
-      ctx.fillStyle = "rgba(0,0,0,0.28)";
-      ctx.fillRect(0,0,w,h);
-      ctx.restore();
-    }
   }
 
   function circle(x,y,r){
@@ -515,7 +508,7 @@
     return `rgba(${r},${g},${b},${a})`;
   }
 
-  // Initial HUD update
+  /* init */
   updateHUD();
 })();
 </script>
