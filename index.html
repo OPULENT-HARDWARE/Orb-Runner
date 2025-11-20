@@ -11,145 +11,76 @@
     --gridGlow: #00ff4c;   /* green default */
     --hud: #e8e8e8;
     --hudDim: #9aa0a6;
-    --radius: 16px;
     --halo: rgba(255,255,255,0.12);
     --halo-strong: rgba(255,255,255,0.25);
     --brand: rgba(255,255,255,0.9);
   }
-
   html, body {
-    height: 100%;
-    width: 100%;
-    margin: 0;
-    background: var(--bg);
-    color: var(--hud);
+    height: 100%; width: 100%; margin: 0;
+    background: var(--bg); color: var(--hud);
     font-family: "Saira", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    overscroll-behavior: none;
-    touch-action: none;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
+    overscroll-behavior: none; touch-action: none;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   }
   * { -webkit-tap-highlight-color: transparent; }
 
   .stage {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background:
-      radial-gradient(1200px 800px at 50% 50%, rgba(0,255,76,0.08), transparent 60%),
-      radial-gradient(900px 600px at 50% 50%, rgba(54,168,255,0.06), transparent 60%),
+      radial-gradient(1200px 800px at 50% 50%, rgba(0,255,76,0.07), transparent 60%),
+      radial-gradient(900px 600px at 50% 50%, rgba(54,168,255,0.05), transparent 60%),
       radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,0.6), rgba(0,0,0,1));
   }
 
-  canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    pointer-events: auto;
-  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: auto; }
 
   /* HUD */
   .hud {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    top: 10px;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 10px;
-    text-shadow: 0 0 10px rgba(0,0,0,0.6);
-    z-index: 100;
+    position: absolute; left: 12px; right: 12px; top: 10px;
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 10px; z-index: 100; text-shadow: 0 0 10px rgba(0,0,0,0.6);
     pointer-events: none;
   }
-  .hud-left, .hud-center, .hud-right {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .hud-left  { justify-content: flex-start; pointer-events: none; }
+  .hud-left, .hud-center, .hud-right { display: flex; align-items: center; gap: 10px; }
+  .hud-left  { justify-content: flex-start; }
   .hud-center{ justify-content: center;     pointer-events: auto; }
-  .hud-right { justify-content: flex-end;   pointer-events: none; }
-
+  .hud-right { justify-content: flex-end;   }
   .badge {
-    padding: 6px 10px;
-    border-radius: 999px;
+    padding: 6px 10px; border-radius: 999px; white-space: nowrap; font-weight: 700; letter-spacing: .4px;
     background: rgba(255,255,255,0.06);
     box-shadow: 0 0 24px rgba(0,0,0,0.5) inset, 0 0 24px rgba(0,0,0,0.4);
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    white-space: nowrap;
   }
-
   .ctl {
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    font-weight: 800;
-    letter-spacing: 0.4px;
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.04) inset,
-      0 10px 25px rgba(0,0,0,0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    color: var(--hud);
+    padding: 8px 14px; border-radius: 999px; user-select: none; cursor: pointer; font-weight: 800; letter-spacing: .4px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset, 0 10px 25px rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--hud);
     touch-action: manipulation;
-    cursor: pointer;
-    user-select: none;
   }
   .ctl:active { transform: scale(0.98); }
-  .ctl.active {
-    background: rgba(255,255,255,0.16);
-    border-color: rgba(255,255,255,0.3);
-  }
-
+  .ctl.active { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.3); }
   .brand { white-space: nowrap; font-weight: 700; color: var(--brand); opacity: 0.95; }
 
   /* Swipe Pad */
   .swipe-wrap{
-    position: absolute;
-    bottom: 22px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(38vw, 220px);
-    height: min(38vw, 220px);
-    display: grid;
-    place-items: center;
-    z-index: 100;
-    pointer-events: auto;
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    width: min(38vw, 220px); height: min(38vw, 220px);
+    display: grid; place-items: center; z-index: 100; pointer-events: auto;
   }
   .swipe-pad{
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
+    width: 100%; height: 100%; border-radius: 50%;
     background:
       radial-gradient(closest-side, rgba(255,255,255,0.03), transparent 60%),
       radial-gradient(closest-side, rgba(0,0,0,0.25), transparent 70%);
     border: 2px solid var(--halo);
-    box-shadow:
-      0 0 18px var(--halo),
-      inset 0 0 22px rgba(255,255,255,0.06);
+    box-shadow: 0 0 18px var(--halo), inset 0 0 22px rgba(255,255,255,0.06);
     position: relative;
   }
-  .swipe-pad::after{
-    content:"";
-    position:absolute; inset:10%;
-    border-radius:50%;
-    border: 1px dashed rgba(255,255,255,0.12);
-  }
+  .swipe-pad::after{ content:""; position:absolute; inset:10%; border-radius:50%; border: 1px dashed rgba(255,255,255,0.12); }
   .streak{
-    position: absolute;
-    width: 6%;
-    height: 40%;
-    top: 10%;
-    left: 47%;
-    border-radius: 999px;
+    position: absolute; width: 6%; height: 40%; top: 10%; left: 47%; border-radius: 999px;
     background: radial-gradient(closest-side, rgba(255,255,255,0.85), rgba(255,255,255,0.1));
-    box-shadow: 0 0 18px rgba(255,255,255,0.4);
-    transform-origin: 50% 100%;
-    opacity: 0;
-    transition: opacity 120ms ease;
+    box-shadow: 0 0 18px rgba(255,255,255,0.4); transform-origin: 50% 100%; opacity: 0; transition: opacity 120ms ease;
     pointer-events: none;
   }
   .pulse{ animation: halo 260ms ease; }
@@ -172,11 +103,11 @@
         <div class="badge" id="length">LEN 1</div>
       </div>
 
-      <!-- SPEED CONTROLS -->
+      <!-- SPEED CONTROLS (Medium = slowest) -->
       <div class="hud-center" aria-label="Speed Controls">
-        <div class="ctl" id="slowBtn"   role="button" tabindex="0" aria-pressed="false">SLOW</div>
         <div class="ctl active" id="mediumBtn" role="button" tabindex="0" aria-pressed="true">MEDIUM</div>
         <div class="ctl" id="fastBtn"   role="button" tabindex="0" aria-pressed="false">FAST</div>
+        <div class="ctl" id="hyperBtn"  role="button" tabindex="0" aria-pressed="false">HYPER</div>
         <div class="ctl" id="restartBtn" role="button" tabindex="0">RESTART</div>
       </div>
 
@@ -205,36 +136,36 @@
   const hudLen   = document.getElementById('length');
 
   const restartBtn = document.getElementById('restartBtn');
-  const slowBtn    = document.getElementById('slowBtn');
   const mediumBtn  = document.getElementById('mediumBtn');
   const fastBtn    = document.getElementById('fastBtn');
+  const hyperBtn   = document.getElementById('hyperBtn');
 
   const swipePad   = document.getElementById('swipePad');
   const streak     = document.getElementById('streak');
 
-  const SPEED_LEVELS = { Slow: 8, Medium: 12, Fast: 16 };
-  let currentLevel = 'Medium';
+  /* --------- Config --------- */
+  const SPEED_LEVELS = { Medium: 12, Fast: 18, Hyper: 24 }; // CPS
+  let currentLevel = localStorage.getItem('orbRunnerLevel') || 'Medium';
 
-  /* event helpers */
+  const DIR = { LEFT:0, UP:1, RIGHT:2, DOWN:3 };
+
+  /* --------- Utils --------- */
   const on = (el, evts, fn, opts={}) => evts.forEach(evt => el.addEventListener(evt, fn, opts));
   const prevent = fn => (e)=>{ e.preventDefault(); fn(e); };
+  const clamp01 = v => (v < 0 ? 0 : (v > 1 ? 1 : v));
 
-  /* DPR + canvas size */
+  /* --------- Canvas & Grid --------- */
   let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   function fitCanvas(){
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    canvas.width  = Math.round(w * DPR);
-    canvas.height = Math.round(h * DPR);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width  = Math.round(w * DPR); canvas.height = Math.round(h * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   new ResizeObserver(fitCanvas).observe(canvas);
   fitCanvas();
 
-  /* Grid from viewport */
   function gridFromViewport() {
-    const vw = canvas.clientWidth;
-    const vh = canvas.clientHeight;
+    const vw = canvas.clientWidth, vh = canvas.clientHeight;
     const targetCell = Math.max(28, Math.min(44, Math.floor(Math.min(vw, vh) / 20)));
     const cols = Math.max(8, Math.floor(vw / targetCell));
     const rows = Math.max(8, Math.floor(vh / targetCell));
@@ -246,20 +177,19 @@
   let grid = gridFromViewport();
   window.addEventListener('resize', () => { grid = gridFromViewport(); });
 
-  const DIR = { LEFT:0, UP:1, RIGHT:2, DOWN:3 };
-
+  /* --------- Game State --------- */
   function newGame() {
-    const midx = Math.floor(grid.cols/2);
-    const midy = Math.floor(grid.rows/2);
+    const midx = Math.floor(grid.cols/2), midy = Math.floor(grid.rows/2);
     return {
       snake: [{x:midx, y:midy}],
-      dir: DIR.RIGHT,
-      nextDir: DIR.RIGHT,
+      dir: DIR.RIGHT, nextDir: DIR.RIGHT,
       food: spawnFood([{x:midx,y:midy}]),
-      score: 0,
-      alive: true,
-      speed: SPEED_LEVELS[currentLevel], // fixed by user selection
+      score: 0, alive: true,
+      speed: SPEED_LEVELS[currentLevel],    // CPS
       tickAcc: 0,
+      // For interpolation: snapshot of snake BEFORE last tick
+      prevSnake: [{x:midx,y:midy}],
+      prevFood: null, // not used visually but kept for completeness
       steps: 0
     };
   }
@@ -267,48 +197,44 @@
   function spawnFood(blocked) {
     const used = new Set(blocked.map(p => p.x + "," + p.y));
     let x, y;
-    do {
-      x = Math.floor(Math.random()*grid.cols);
-      y = Math.floor(Math.random()*grid.rows);
-    } while (used.has(x + "," + y));
+    do { x = Math.floor(Math.random()*grid.cols); y = Math.floor(Math.random()*grid.rows); }
+    while (used.has(x + "," + y));
     return {x,y};
   }
 
   let G = newGame();
 
-  /* HUD update */
+  /* --------- HUD --------- */
   function updateHUD(){
     hudScore.textContent = "SCORE " + G.score;
     hudSpeed.textContent = "SPEED " + G.speed.toFixed(0) + " CPS";
     hudLen.textContent   = "LEN " + G.snake.length;
 
+    // Adaptive glow based on selected tier (readable thresholds)
     const root = document.documentElement;
-    if (G.speed <= SPEED_LEVELS.Slow) {
-      root.style.setProperty('--gridGlow', '#00ff4c');  // green
-    } else if (G.speed < SPEED_LEVELS.Fast) {
-      root.style.setProperty('--gridGlow', '#ffb020');  // amber
-    } else {
-      root.style.setProperty('--gridGlow', '#ff3b30');  // red
-    }
+    if (G.speed <= SPEED_LEVELS.Medium) root.style.setProperty('--gridGlow', '#00ff4c');  // green
+    else if (G.speed < SPEED_LEVELS.Hyper) root.style.setProperty('--gridGlow', '#ffb020'); // amber
+    else root.style.setProperty('--gridGlow', '#ff3b30'); // red
 
     // button active states
-    [slowBtn, mediumBtn, fastBtn].forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
-    if (currentLevel === 'Slow')   { slowBtn.classList.add('active'); slowBtn.setAttribute('aria-pressed','true'); }
+    [mediumBtn, fastBtn, hyperBtn].forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
     if (currentLevel === 'Medium') { mediumBtn.classList.add('active'); mediumBtn.setAttribute('aria-pressed','true'); }
-    if (currentLevel === 'Fast')   { fastBtn.classList.add('active'); fastBtn.setAttribute('aria-pressed','true'); }
+    if (currentLevel === 'Fast')   { fastBtn.classList.add('active');   fastBtn.setAttribute('aria-pressed','true'); }
+    if (currentLevel === 'Hyper')  { hyperBtn.classList.add('active');  hyperBtn.setAttribute('aria-pressed','true'); }
   }
 
   function setSpeedLevel(level){
     currentLevel = level;
+    localStorage.setItem('orbRunnerLevel', level);
     G.speed = SPEED_LEVELS[level];
     updateHUD();
   }
 
-  /* Controls: keyboard (optional) */
+  /* --------- Controls --------- */
   window.addEventListener('keydown', (e) => {
-    if (e.key === '1') setSpeedLevel('Slow');
-    if (e.key === '2') setSpeedLevel('Medium');
-    if (e.key === '3') setSpeedLevel('Fast');
+    if (e.key === '1') setSpeedLevel('Medium');
+    if (e.key === '2') setSpeedLevel('Fast');
+    if (e.key === '3') setSpeedLevel('Hyper');
     if (e.key === 'r') restart();
     if (e.key === 'ArrowLeft' || e.key === 'a') setDir((G.dir + 3) % 4);
     if (e.key === 'ArrowRight'|| e.key === 'd') setDir((G.dir + 1) % 4);
@@ -316,11 +242,10 @@
     if (e.key === 'ArrowDown' || e.key === 's') setDir(DIR.DOWN);
   });
 
-  /* Buttons */
   on(restartBtn, ['pointerup','click'], prevent(()=>restart()), {passive:false});
-  on(slowBtn,    ['pointerup','click'], prevent(()=>setSpeedLevel('Slow')),   {passive:false});
   on(mediumBtn,  ['pointerup','click'], prevent(()=>setSpeedLevel('Medium')), {passive:false});
   on(fastBtn,    ['pointerup','click'], prevent(()=>setSpeedLevel('Fast')),   {passive:false});
+  on(hyperBtn,   ['pointerup','click'], prevent(()=>setSpeedLevel('Hyper')),  {passive:false});
 
   function restart(){
     G = newGame();
@@ -330,28 +255,26 @@
 
   function setDir(d){ G.nextDir = d; }
 
-  /* Swipe pad flick */
+  /* --------- Swipe/Flick --------- */
   let swipeStart = null;
   const SWIPE_MIN = 18;
 
   on(swipePad, ['pointerdown','touchstart'], prevent((e)=>{
-    const p = getPoint(e, swipePad);
-    swipeStart = p;
+    swipeStart = getPoint(e, swipePad);
   }), {passive:false});
 
   on(swipePad, ['pointerup','touchend'], prevent((e)=>{
     if (!swipeStart) return;
     const p = getPoint(e, swipePad);
-    const dx = p.x - swipeStart.x;
-    const dy = p.y - swipeStart.y;
+    const dx = p.x - swipeStart.x, dy = p.y - swipeStart.y;
     const mag = Math.hypot(dx, dy);
 
     if (mag >= SWIPE_MIN) {
       const ang = Math.atan2(dy, dx);
       showStreak(ang);
       const ax = Math.abs(dx), ay = Math.abs(dy);
-      if (ax > ay) { setDir(dx < 0 ? DIR.LEFT : DIR.RIGHT); }
-      else         { setDir(dy < 0 ? DIR.UP   : DIR.DOWN ); }
+      if (ax > ay) setDir(dx < 0 ? DIR.LEFT : DIR.RIGHT);
+      else         setDir(dy < 0 ? DIR.UP   : DIR.DOWN );
     } else {
       pulsePad();
     }
@@ -362,11 +285,8 @@
   function getPoint(e, relativeToEl){
     const rect = relativeToEl.getBoundingClientRect();
     let cx, cy;
-    if (e.changedTouches && e.changedTouches[0]) {
-      cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY;
-    } else {
-      cx = e.clientX; cy = e.clientY;
-    }
+    if (e.changedTouches && e.changedTouches[0]) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; }
+    else { cx = e.clientX; cy = e.clientY; }
     return { x: cx-rect.left, y: cy-rect.top, w: rect.width, h: rect.height };
   }
 
@@ -377,63 +297,40 @@
     clearTimeout(showStreak._t);
     showStreak._t = setTimeout(()=>{ streak.style.opacity = '0'; }, 160);
   }
-  function pulsePad(){
-    swipePad.classList.remove('pulse');
-    void swipePad.offsetWidth;
-    swipePad.classList.add('pulse');
-  }
-  function swipeClear(){
-    streak.style.opacity = '0';
-    swipePad.classList.remove('pulse');
-  }
+  function pulsePad(){ swipePad.classList.remove('pulse'); void swipePad.offsetWidth; swipePad.classList.add('pulse'); }
+  function swipeClear(){ streak.style.opacity = '0'; swipePad.classList.remove('pulse'); }
 
-  /* Game loop */
-  let last = performance.now();
-  function loop(now){
-    const dt = Math.min(0.06, (now - last)/1000);
-    last = now;
-    if (G.alive) {
-      const stepTime = 1/Math.max(1, G.speed); // CPS
-      G.tickAcc += dt;
-      while (G.tickAcc >= stepTime) {
-        tick();
-        G.tickAcc -= stepTime;
-      }
-    }
-    draw();
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
+  /* --------- Simulation + Interpolation --------- */
+  // We keep a copy of snake positions before applying a tick.
+  // During draw(), we interpolate each segment between prevSnake[i] -> snake[i].
+  function snapshotSnake(arr) { return arr.map(p => ({x:p.x, y:p.y})); }
 
   function tick(){
+    // Prepare previous positions for interpolation
+    G.prevSnake = snapshotSnake(G.snake);
+
     G.dir = validateTurn(G.dir, G.nextDir);
     const head = G.snake[0];
-    const nx = head.x + (G.dir===DIR.RIGHT?1:G.dir===DIR.LEFT?-1:0);
-    const ny = head.y + (G.dir===DIR.DOWN?1:G.dir===DIR.UP?-1:0);
+    const nx = wrap(head.x + (G.dir===DIR.RIGHT?1:G.dir===DIR.LEFT?-1:0), grid.cols);
+    const ny = wrap(head.y + (G.dir===DIR.DOWN?1:G.dir===DIR.UP?-1:0), grid.rows);
     const newHead = {x:nx, y:ny};
 
-    newHead.x = (newHead.x + grid.cols) % grid.cols;
-    newHead.y = (newHead.y + grid.rows) % grid.rows;
-
+    // Self collision
     for (let i=0;i<G.snake.length;i++){
-      if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y) {
-        G.alive = false;
-        updateHUD();
-        return;
-      }
+      if (G.snake[i].x===newHead.x && G.snake[i].y===newHead.y) { G.alive = false; return; }
     }
 
     G.snake.unshift(newHead);
 
     if (newHead.x === G.food.x && newHead.y === G.food.y) {
       G.score += 1;
-      G.food = spawnFood(G.snake);   // no auto speed ramp; user controls speed
+      G.food = spawnFood(G.snake);
+      // No auto-speed ramp — user controls speed tier
     } else {
       G.snake.pop();
     }
 
     G.steps++;
-    updateHUD();
   }
 
   function validateTurn(cur, nxt){
@@ -443,24 +340,46 @@
         (cur===DIR.DOWN && nxt===DIR.UP)) return cur;
     return nxt;
   }
+  const wrap = (v, m) => (v + m) % m;
 
-  /* Rendering */
+  /* --------- Main Loop (fixed-step sim, interpolated render) --------- */
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.06, (now - last)/1000); // cap for tab-thrashes
+    last = now;
+
+    if (G.alive) {
+      const stepTime = 1/Math.max(1, G.speed); // seconds per cell
+      G.tickAcc += dt;
+      while (G.tickAcc >= stepTime) {
+        tick();
+        G.tickAcc -= stepTime;
+      }
+    }
+
+    draw(); // uses interpolation factor based on tickAcc
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* --------- Drawing (Interpolated) --------- */
   function draw(){
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.fillStyle = "#000"; ctx.fillRect(0,0,w,h);
 
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,w,h);
-
+    // Background vignette
     const grad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)*0.7);
     grad.addColorStop(0, "rgba(0,0,0,0)");
     grad.addColorStop(1, "rgba(0,0,0,0.6)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
 
     const c = grid.cell, ox = grid.ox, oy = grid.oy;
 
-    // Food
+    // Interpolation factor (0..1) for sub-cell movement
+    const stepTime = 1/Math.max(1, G.speed);
+    const f = clamp01(G.tickAcc / stepTime);
+
+    // Food (pulsing orb)
     const t = performance.now()*0.002;
     const pulse = 0.4 + 0.2*Math.sin(t);
     const fx = ox + G.food.x*c + c/2;
@@ -468,48 +387,69 @@
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowBlur = 24;
-    ctx.shadowColor = '#36a8ff';
+    ctx.shadowBlur = 24; ctx.shadowColor = '#36a8ff';
     ctx.fillStyle = `rgba(54,168,255,${0.7 + 0.3*pulse})`;
     circle(fx, fy, Math.max(4, c*0.22*(1+pulse)));
     ctx.restore();
 
-    // Snake
+    // Snake (interpolated between prevSnake and current snake)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const glow = getComputedStyle(document.documentElement).getPropertyValue('--gridGlow').trim() || '#00ff4c';
-    ctx.shadowBlur = 22;
-    ctx.shadowColor = glow;
+    ctx.shadowBlur = 22; ctx.shadowColor = glow;
 
-    for (let i=0;i<G.snake.length;i++){
-      const s = G.snake[i];
-      const px = ox + s.x*c + c/2;
-      const py = oy + s.y*c + c/2;
-      const a = i===0 ? 0.95 : Math.max(0.25, 0.9 - i*0.02);
-      ctx.fillStyle = hexToRGBA(glow, a);
+    const rgbaCache = {};
+    function glowRGBA(alpha){
+      if (!rgbaCache[alpha]) rgbaCache[alpha] = hexToRGBA(glow, alpha);
+      return rgbaCache[alpha];
+    }
+
+    const segCount = G.snake.length;
+    for (let i=0;i<segCount;i++){
+      const cur = G.snake[i];
+      // If prevSnake shorter (just after growth), fallback to current
+      const prv = (G.prevSnake[i] || cur);
+
+      // Compute delta with wrap-aware shortest path
+      let dx = cur.x - prv.x;
+      let dy = cur.y - prv.y;
+      if (dx >  grid.cols/2)  dx -= grid.cols;
+      if (dx < -grid.cols/2)  dx += grid.cols;
+      if (dy >  grid.rows/2)  dy -= grid.rows;
+      if (dy < -grid.rows/2)  dy += grid.rows;
+
+      const ix = prv.x + dx * f;
+      const iy = prv.y + dy * f;
+
+      const px = ox + ((ix % grid.cols + grid.cols) % grid.cols)*c + c/2;
+      const py = oy + ((iy % grid.rows + grid.rows) % grid.rows)*c + c/2;
+
+      const a = (i===0) ? 0.95 : Math.max(0.25, 0.9 - i*0.02);
+      ctx.fillStyle = glowRGBA(a);
       circle(px, py, Math.max(4, c*0.24));
     }
     ctx.restore();
+
+    // HUD update (cheap enough)
+    updateHUD();
+
+    // Fade on death
+    if (!G.alive) {
+      ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fillRect(0,0,w,h); ctx.restore();
+    }
   }
 
-  function circle(x,y,r){
-    ctx.beginPath();
-    ctx.arc(x,y,r,0,Math.PI*2);
-    ctx.closePath();
-    ctx.fill();
-  }
+  function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.closePath(); ctx.fill(); }
 
   function hexToRGBA(hex, a=1){
     const h = hex.replace('#','');
     const bigint = parseInt(h.length===3 ? h.split('').map(ch=>ch+ch).join('') : h, 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
+    const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
     return `rgba(${r},${g},${b},${a})`;
   }
 
-  /* init */
-  updateHUD();
+  /* --------- Boot --------- */
+  updateHUD(); // start running immediately
 })();
 </script>
 </body>
